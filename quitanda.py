@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, session
 import sqlite3 as sql
 import uuid
+import os
 
 app = Flask(__name__)
 app.secret_key = "quitandazezinho"
@@ -108,12 +109,17 @@ def cadastro():
         return redirect("/login")
     
 #ROTA DE EXCLUSÃO
-@app.route("/excluir/<id>")
-def excluir(id):
+@app.route("/excluir/<id_prod>")
+def excluir(id_prod):
     if verifica_sessao():
-        id = int(id)
+        id_prod = int(id_prod)
+        iniciar_db()
         conexao = conecta_database()
-        conexao.execute('DELETE FROM produtos WHERE id_prod = ?',(id,))
+        produto = conexao.execute('SELECT * FROM produtos WHERE id_prod = ?',(id_prod,)).fetchall()
+        filename_old = produto[0]['img_prod']
+        excluir_arquivo = "static/img/produtos/"+filename_old
+        os.remove(excluir_arquivo)
+        conexao.execute('DELETE FROM produtos WHERE id_prod = ?',(id_prod,))
         conexao.commit()
         conexao.close()
         return redirect('/adm')
@@ -141,11 +147,18 @@ def editprod():
     desc_prod=request.form['desc_prod']
     preco_prod=request.form['preco_prod']
     img_prod=request.files['img_prod']
-    id_foto=str(uuid.uuid4().hex)
-    filename=id_foto+nome_prod+'.png'
-    img_prod.save("static/img/produtos/"+filename)
+    print(img_prod.filename)
     conexao = conecta_database()
-    conexao.execute('UPDATE produtos SET nome_prod = ?, desc_prod = ?, preco_prod = ?, img_prod = ? WHERE id_prod = ?',(nome_prod,desc_prod,preco_prod,filename,id_prod))
+    if img_prod:
+        filename_old=request.form['img_prod2'] 
+        excluir_arquivo = "static/img/produtos/"+filename_old
+        os.remove(excluir_arquivo)
+        id_foto=str(uuid.uuid4().hex)
+        filename=id_foto+nome_prod+'.png'
+        img_prod.save("static/img/produtos/"+filename) 
+        conexao.execute('UPDATE produtos SET nome_prod = ?, desc_prod = ?, preco_prod = ?, img_prod = ? WHERE id_prod = ?',(nome_prod,desc_prod,preco_prod,filename,id_prod))
+    else:
+        conexao.execute('UPDATE produtos SET nome_prod = ?, desc_prod = ?, preco_prod = ? WHERE id_prod = ?',(nome_prod,desc_prod,preco_prod,id_prod))
     conexao.commit()
     conexao.close()
     return redirect('/adm')
